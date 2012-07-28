@@ -1,0 +1,237 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+	<title></title>
+	<script src="http://ajax.aspnetcdn.com/ajax/jQuery/jquery-1.6.4.min.js" type="text/javascript"></script>
+	<script src="../jquery.klass.js" type="text/javascript"></script>
+	<link rel="stylesheet" type="text/css" href="qunit/qunit.css" />
+	<script src="qunit/qunit.js" type="text/javascript"></script>
+</head>
+<body>
+<h1 id="qunit-header">jQuery.klass - QUnit</h1>
+<h2 id="qunit-banner"></h2>
+<h2 id="qunit-userAgent"></h2>
+<ol id="qunit-tests"></ol>
+<script type="text/javascript" language="javascript">
+$(function () {
+// ---------------------------------------------------------------------
+module("Extras");
+test("Merge", function(){
+	var merge = $.klass.merge, m, a, b, c, obj;
+
+	m = merge([1], [2]);
+	deepEqual(m, {"0": 2}, "we expected a 'weird' merge: do not merge arrays!");
+
+	m = merge("ab", "cd");
+	deepEqual(m, {"0": "c", "1": "d"}, "we expected a 'weird' merge: do not merge strings!");
+
+	m = merge({a: 1}, {a: 2}, {a: 3});
+	deepEqual(m, {a: 3}, "multiple merges with overrides");
+
+	m = merge({a: 1}, {b: 2}, {c: 3});
+	deepEqual(m, {a: 1, b: 2, c: 3}, "multiple merges");
+
+	obj = {a: 1};
+	merge(obj, {a: 2});
+	equal(obj.a, 1, "merge shall not touch the original objects");
+
+	a = {a: 1, b: [1, 2]};
+	b = {b: [3, 4]};
+	m = merge(a, b);
+	deepEqual(m, {a: 1, b: [3, 4]}, "merge will overwrite non-objects");
+
+	a = {a: {b: {c: 1}}};
+	b = {a: {b: {c: 2}}};
+	c = {a: {b: {c: 3}}};
+	m = merge(a, b, c);
+	deepEqual(m, {a: {b: {c: 3}}}, "deep merging with overwrite");
+
+	m = merge();
+	deepEqual(m, {}, "an empty object (no arguments)");
+
+	m = merge(1, 2, 3, 4);
+	deepEqual(m, {}, "an empty object (primitive numbers)");
+});
+// ---------------------------------------------------------------------
+module("Classes");
+test("Creation", function(){
+	var item, obj, ex, ex2, Alpha, Exclusive;
+	obj = {a: 1, b: 2, c: 3};
+	$.klass.flush();
+	Alpha = $.klass({
+		obj: obj,
+		name: "void",
+		initialize: function () {
+			this.name = "alpha";
+		},
+		setName: function (s) {
+			this.name = s;
+		},
+		getName: function () {
+			return this.name;
+		}
+	});
+
+	Exclusive = $.klass({
+		_exclusive: true
+	});
+	ex = new Exclusive();
+
+	raises(function(){
+		$.klass();
+	}, "klass.create needs at least one parameter (preferably the object)");
+
+	raises(function(){
+		$.klass("Alpha");
+	}, "klass.create without an object parameter");
+
+	raises(function(){
+		$.klass({}, {});
+	}, "klass.create (extending) with two parameters, but the first on is not an existing class");
+
+	raises(function(){
+		ex2 = new Exclusive();
+	}, "an exclusive class can not be instanciated more than once (an error shall be thrown)");
+
+	item = new Alpha();
+	equal(item.name, "alpha", "constructors called on instanciation");
+
+	item.setName("alef");
+	equal(item.name, "alef", "setting properties");
+
+	equal(item.getName(), "alef", "retrieving properties");
+
+	equal(item.obj.a, 1, "retrieving properties from an object");
+
+	obj.a = 99;
+	equal(item.obj.a, obj.a, "property object modified externally");
+
+	item.obj.a = 2; // this one is tricky
+	equal(obj.a, 99, "property object modified internally: original value can not be changed from the object");
+
+	notEqual(obj.a, item.obj.a, "object values dissociated (prototype vs real)");
+
+	ok(item.obj.hasOwnProperty("a"), "property is now own");
+	ok(!item.obj.hasOwnProperty("b"), "property lives on the prototype chain");
+});
+
+// ---------------------------------------------------------------------
+test("Extending", function(){
+	var a, b, c, x, classes = {}, Store, Grocery, ext = "";
+
+	$.klass.flush();
+	classes.Store = $.klass({
+		counters: [0, 1, 2],
+		num: 1,
+		fruits: {apple:{grenadier:1}},
+		initialize: function(){
+			this.type = "store";
+		},
+		getNum: function(){
+			return this.num;
+		}
+	});
+
+	classes.Grocery = $.klass(classes.Store, {
+		counters: [3, 4, 5],
+		num: 2,
+		fruits: {apple:{grenadier:2}},
+		getNum: function(){
+			return this.parent();
+		},
+		setCounter: function (idx, val) {
+			if (this.counters.length < idx) {
+				return false;
+			}
+			this.counters[idx] = val;
+			return true;
+		}
+	});
+
+	a = new classes.Store();
+	b = new classes.Grocery();
+	$.klass.setClassPool(classes);
+	Store = $.klass.getClasses().Store;
+	Grocery = $.klass.getClasses().Grocery;
+
+	equal(a.type, "store", "initialize run automatically on instanciation");
+	equal(b.type, "store", "inherited initialize run atomatically");
+	equal(b.getNum(), 2, "this.simple parent method call");
+
+	// previous bug
+	equal(typeof Store.prototype.__instaId, "undefined", "instance id must not be part of the class prototype chain (parent)");
+	equal(typeof Grocery.prototype.__instaId, "undefined", "instance id must not be part of the class prototype chain (sub)");
+
+	ok(!b.setCounter(99, 99), "calling functions, setting properties");
+	ok(b.setCounter(0, 99), "calling functions, setting properties");
+	equal(b.counters[0], 99, "array value changed in second object");
+	equal(a.counters[0], 0, "array value stayed unchanged in first object");
+
+	a.fruits.apple = {golden: 1};
+	a.fruits.pear = {anjou: 1};
+	deepEqual(b.fruits.apple, {grenadier: 2}, "object in second instance stayed untouched (object reset)");
+
+	classes.ParCollA = $.klass({
+		f1: function() {
+			ext += "(c.f1)";
+		},
+		f2: function() {
+			ext += "(c.f2)";
+			this.f1();
+		}
+	});
+
+	classes.ParCollB = classes.ParCollA.extend({
+		f1: function() {
+			ext += "(d.f1)";
+		},
+		f2: function() {
+			this.f1();
+			this.parent();
+		}
+	});
+	x = new classes.ParCollB();
+	x.f2();
+	equal(ext, "(d.f1)(c.f2)(d.f1)", "this.parent restoration");
+});
+// ---------------------------------------------------------------------
+module("Runtime");
+test("Introspection", function(){
+	var a, b, c, i, classes = {};
+
+	$.klass.flush();
+	classes.Beta = $.klass({
+		id: null,
+		initialize: function (id) {
+			this.id = id;
+		}
+	});
+	a = [];
+	for (var i = 0; i < 10; i++) {
+		a.push(new classes.Beta(i));
+	}
+	$.klass.setClassPool(classes);
+
+	ok(typeof($.klass.getClasses()) == "object", "fetch classpool");
+	ok($.klass.getClasses().Beta.prototype.id === null, "class in classpool has prototypes");
+
+	equal($.klass.getInstances()[a[0].__instaId].id, 0, "retrieve item from instancepool, read its property");
+	equal($.klass.getInstancesByClass(true)["Beta"].length, 10, "retrieved the number of all Beta instances (as an array)");
+	
+	equal($.klass.getInstancesByClass()["Beta"][a[0].__instaId].__instaId, 0, "retrieved a Beta instance");
+	ok(typeof($.klass.getInstancesByClass(true)["ParCollA"]) == "undefined", "uninstanciated parents must not be part of the instancepool (null check for first klass argument)");
+	ok($.klass.isClassInstanciated("Beta"), "shorthand to check if a class has been instanciated");
+	equal($.klass.getFirstInstanceOf("Beta").id, 0, "first instance of the Betas");
+	equal($.klass.getLastInstanceOf("Beta").id, 9, "last instance of the Betas");
+
+	equal(typeof $.klass.getClasses().Beta.__isParent, "undefined", "the Beta class has no subclasses");
+	classes.Gamma = $.klass(classes.Beta, {});
+	equal($.klass.getClasses().Beta.__isParent, true, "the Beta class has one subclass now: Gamma");
+	equal(typeof $.klass.getClasses().Gamma.__isParent, "undefined", "the Gamma class has no subclasses, it's not an ancestor");
+});
+
+});
+</script>
+</body>
+</html>

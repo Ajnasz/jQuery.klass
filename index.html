@@ -1,0 +1,73 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+	<title>$.klass</title>
+	<script src="http://ajax.aspnetcdn.com/ajax/jQuery/jquery-1.6.4.min.js" type="text/javascript"></script>
+	<script src="jquery.klass.js" type="text/javascript"></script>
+</head>
+<body>
+<h1>jQuery class module</h1>
+
+<p>
+	Based on MooTools 1.11 Core Class module which is "slightly based on Base.js"<br />
+	License: MIT-style license.
+</p>
+<p>
+	Check the source for examples, have fun.
+	(<a href="jquery.klass.js">jquery-.klass.js</a>)
+</p>
+
+<a href="#" id="Link">meow</a>
+<script type="text/javascript" language="javascript">
+<!--
+	var classes = {};
+	$.klass.setClassPool(classes);
+
+	classes.Animal = $.klass({
+		x: [0, 1, 2],
+		initialize: function(){
+			console.log("animal");
+		},
+		commonFunc: function(){
+			console.log("commonFunc in animal");
+		}
+	});
+
+	//var Cat = $.klass(Animal, {
+	classes.Cat = classes.Animal.extend({
+		initialize: function(name){
+			this.commonFunc();
+			this.parent(); // call lazy bound static function (parent)
+			this.commonFunc(); // test static parent restoration
+			this.x.push(3);
+			console.log(this.x.length);
+			this.name = name;
+			$("#Link").live("click", $.proxy(this.onClick, this, 1, 2, 3));
+		},
+		onClick: function (a, b, c, e) {
+			console.log(a, b, c, e); // test proxy/eBind
+			e.preventDefault(); // jquery enhances preventDefault
+			console.log(this.name + " says " + $(e.target).text()); // test scope
+			$.get("index.html", $.proxy(this.onAjaxGet, this, 1, 2, 3));
+		},
+		onAjaxGet: function (a, b, c, resp, succ, xhr) {
+			console.log(a, b, c, xhr); // test proxy/bind
+		},
+		commonFunc: function(){
+			console.log("commonFunc in cat");
+		}
+	});
+	var myCat = new classes.Cat('Micia');
+	var animal = new classes.Animal();
+	console.log(animal.x.length); // test reset
+	
+	console.log("get instances: ", $.klass.getInstances());
+	console.log("get instances, grouped by class: ", $.klass.getInstancesByClass());
+	console.log("Animal is instanciated: ", $.klass.isClassInstanciated("Animal"));
+	console.log("first instance of Cat: ", $.klass.getFirstInstanceOf("Cat"));
+//-->
+
+</script>
+</body>
+</html>
