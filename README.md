@@ -20,7 +20,7 @@ Exported functions
 Some examples
 -------------
 ```javascript
-var Animal = new $.klass({
+var Animal = $.klass({
 	initialize: function(age){
 		this.age = age;
 	}
